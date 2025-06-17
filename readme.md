@@ -1,4 +1,4 @@
-EncryptChat - Aplikasi Chat dengan Enkripsi RSA
+FlowerChat - Aplikasi Chat dengan Enkripsi RSA
 ================================================
 
 Panduan instalasi dan penggunaan aplikasi ini di lingkungan lokal Anda.
