@@ -131,7 +131,7 @@
         <!-- Chat Area -->
         <div class="flex-1 flex flex-col">
             <!-- Chat Header -->
-            <div id="chatHeader" class="p-3 bg-white border-b flex items-center justify-between hidden">
+            <div id="chatHeader" class="p-3 bg-white border-b flex items-center justify-between">
                 <div class="flex items-center">
                     <div id="chatAvatar" class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold">
                         ?
@@ -201,7 +201,14 @@
     let typingTimeout;
     let isLoadingMessages = false;
     let lastClickTime = 0;
+    let loadingUser = null;
 
+function resetLoadingStates() {
+    isLoadingMessages = false;
+    document.querySelectorAll('.user-loading').forEach(el => el.classList.remove('user-loading'));
+    const chatBox = document.getElementById('chatBox');
+    if (chatBox) chatBox.classList.remove('message-loading');
+}
     // Connect to Socket.IO
     socket.on('connect', () => {
         console.log('Connected to server with socket ID:', socket.id);
@@ -224,98 +231,83 @@
         socket.emit('get_online_users');
     });
 
-    
+function selectUser(username, avatarColor) {
+    resetLoadingStates();
 
-    function selectUser(username, avatarColor) {
-        const now = Date.now();
-        if (now - lastClickTime < 300) return; // 300ms debounce
-        lastClickTime = now;
+    if (username === selectedUser) return;
 
-        console.log(`Selecting user: ${username}`, 
-                   `Current selected: ${selectedUser}`,
-                   `Loading state: ${isLoadingMessages}`);
+    selectedUser = username;
+    loadingUser = username;
 
-        // Reset loading state if switching users
-        if (username !== selectedUser) {
-            resetLoadingStates();
-        }
+    // Log debug
+    console.log('selectUser:', username, 'selectedUser:', selectedUser, 'loadingUser:', loadingUser);
 
-        // Skip if already selected or loading
-        if (isLoadingMessages || username === selectedUser) return;
-        
-        // Add loading state
-        const clickedButton = document.getElementById(`user-${username}`);
-        clickedButton.classList.add('user-loading');
-        isLoadingMessages = true;
-        
-        // Update selected user
-        selectedUser = username;
-        
-        // Add loading state to chat area
-        const chatBox = document.getElementById('chatBox');
-        chatBox.classList.add('message-loading');
-        
-        // Update UI
-        document.getElementById('emptyChat').classList.add('hidden');
-        document.getElementById('chatHeader').classList.remove('hidden');
-        document.getElementById('messageInputContainer').classList.remove('hidden');
-        
-        // Update chat header
-        document.getElementById('chatWith').textContent = username;
-        const chatAvatar = document.getElementById('chatAvatar');
+    // Reset indikator typing
+    const typingIndicator = document.getElementById('typingIndicator');
+    if (typingIndicator) typingIndicator.classList.add('hidden');
+
+    // Update UI ke state loading
+    const clickedButton = document.getElementById(`user-${username}`);
+    if (clickedButton) clickedButton.classList.add('user-loading');
+    isLoadingMessages = true;
+
+    // Update chat header
+    const emptyChat = document.getElementById('emptyChat');
+    if (emptyChat) emptyChat.classList.add('hidden');
+
+    const chatHeader = document.getElementById('chatHeader');
+    if (chatHeader) chatHeader.classList.remove('hidden');
+
+    const messageInputContainer = document.getElementById('messageInputContainer');
+    if (messageInputContainer) messageInputContainer.classList.remove('hidden');
+
+    const chatWith = document.getElementById('chatWith');
+    if (chatWith) chatWith.textContent = username;
+
+    const chatAvatar = document.getElementById('chatAvatar');
+    if (chatAvatar) {
         chatAvatar.textContent = username[0].toUpperCase();
         chatAvatar.className = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${avatarColor}`;
-        
-        // Update status
-        const statusElement = document.getElementById(`status-${username}`);
-        updateStatusIndicator(statusElement.classList.contains('bg-green-400'));
-        
-        // Clear current messages
+    }
+
+    // Update status
+    const statusElement = document.getElementById(`status-${username}`);
+    if (statusElement) updateStatusIndicator(statusElement.classList.contains('bg-green-400'));
+
+    // Bersihkan chat sebelumnya
+    const chatBox = document.getElementById('chatBox');
+    if (chatBox) {
         chatBox.innerHTML = '';
-        
-        // Update active contact in sidebar
-        document.querySelectorAll('#userList button').forEach(btn => {
-            btn.classList.remove('bg-gray-100', 'selected-chat');
-            if(btn.id === `user-${username}`) {
-                btn.classList.add('bg-gray-100', 'selected-chat');
-            }
-        });
-        
-        // Load messages
-        socket.emit('load_messages', { contact: username }, (response) => {
-            resetLoadingStates();
-            clickedButton.classList.remove('user-loading');
-            
-            if (response && response.error) {
-                showToast('Failed to load messages', 'error');
-                console.error('Load messages error:', response.error);
-            }
-        });
-        
-        // Focus input field
-        setTimeout(() => {
-            document.getElementById('messageInput').focus();
-        }, 100);
+        chatBox.classList.add('message-loading');
     }
-    
-    function resetLoadingStates() {
-        isLoadingMessages = false;
-        document.querySelectorAll('.user-loading').forEach(el => el.classList.remove('user-loading'));
-        document.getElementById('chatBox').classList.remove('message-loading');
-    }
+
+    // Update active contact in sidebar
+    document.querySelectorAll('#userList button').forEach(btn => {
+        btn.classList.remove('bg-gray-100', 'selected-chat');
+        if (btn.id === `user-${username}`) {
+            btn.classList.add('bg-gray-100', 'selected-chat');
+        }
+    });
+
+    // Load pesan baru
+    socket.emit('load_messages', { contact: username });
+
+    // Focus input field
+    setTimeout(() => {
+        const messageInput = document.getElementById('messageInput');
+        if (messageInput) messageInput.focus();
+    }, 100);
+}
 
     // Improved message handling
     socket.on('receive_message', (data) => {
-        console.log('Received message:', data);
-        
-        // Always update last message in sidebar
-        updateLastMessage(data.sender, data.message, data.timestamp);
-        
-        // Only append if it's for the current chat
-        if (data.sender === selectedUser || data.sender === currentUser) {
-            appendMessage(data.sender, data.message, data.sender === currentUser, data.timestamp);
-        }
-    });
+    // Hanya tampilkan pesan jika untuk user yang sedang aktif
+    if (data.sender === selectedUser || data.receiver === selectedUser) {
+        appendMessage(data.sender, data.message, data.sender === currentUser, data.timestamp);
+    }
+    // Update last message di sidebar tetap boleh
+    updateLastMessage(data.sender, data.message, data.timestamp);
+});
 
     // Update the status indicator in chat header
     function updateStatusIndicator(isOnline) {
@@ -334,30 +326,27 @@
     }
 
     // Send a new message
-    function sendMessage(event) {
-        event.preventDefault();
-        const messageInput = document.getElementById('messageInput');
-        const message = messageInput.value.trim();
-        
-        if (!message || !selectedUser) return;
-        
-        socket.emit('send_message', {
-            receiver: selectedUser,
-            message: message
-        }, (response) => {
-            if (response && response.success) {
-                // Message sent successfully
-                console.log('Message delivered');
-            } else {
-                // Handle error
-                console.error('Failed to send message:', response.error);
-                showToast('Failed to send message', 'error');
-            }
-        });
-        
-        // Clear input
-        messageInput.value = '';
-    }
+        window.sendMessage = function(event) {
+            event.preventDefault();
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (!message || !selectedUser) return;
+            
+            socket.emit('send_message', {
+                receiver: selectedUser,
+                message: message
+            }, (response) => {
+                if (response && response.success) {
+                    console.log('Message delivered');
+                } else {
+                    console.error('Failed to send message:', response.error);
+                    showToast('Failed to send message', 'error');
+                }
+            });
+            
+            messageInput.value = '';
+        }
 
     // Handle typing indicator
     function setupTypingIndicator() {
@@ -382,10 +371,19 @@
     }
 
     // Load chat history
-    socket.on('chat_history', (messages) => {
-        const chatBox = document.getElementById('chatBox');
+socket.on('chat_history', (messages) => {
+    // Log debug
+    console.log('chat_history for:', loadingUser, 'current selectedUser:', selectedUser);
+
+    if (!selectedUser || loadingUser !== selectedUser) {
+        console.log('Skip chat_history update because user changed');
+        return;
+    }
+
+    const chatBox = document.getElementById('chatBox');
+    if (chatBox) {
         chatBox.innerHTML = '';
-        
+
         if (messages.length === 0) {
             chatBox.innerHTML = '<div class="text-center text-gray-500 py-4">No messages yet</div>';
         } else {
@@ -393,9 +391,15 @@
                 appendMessage(msg.sender, msg.message, msg.isCurrentUser, msg.timestamp);
             });
         }
-        
+
         chatBox.scrollTop = chatBox.scrollHeight;
-    });
+    }
+
+    // Hapus loading overlay
+    resetLoadingStates();
+    const clickedButton = document.getElementById(`user-${selectedUser}`);
+    if (clickedButton) clickedButton.classList.remove('user-loading');
+});
 
     socket.on('load_messages_error', (error) => {
         console.error('Failed to load messages:', error);
