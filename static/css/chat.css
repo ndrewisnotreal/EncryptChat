@@ -1,0 +1,99 @@
+.message-out::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: 0;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent;
+    border-left-color: #dcf8c6;
+    border-right: 0;
+    border-top: 0;
+}
+
+.message-in::after {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 0;
+    width: 0;
+    height: 0;
+    border: 10px solid transparent;
+    border-right-color: white;
+    border-left: 0;
+    border-top: 0;
+}
+
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+}
+
+.typing-dot {
+    width: 6px;
+    height: 6px;
+    background-color: #9ca3af;
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: typingAnimation 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typingAnimation {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-5px); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chat loading state */
+.message-loading {
+    position: relative;
+    opacity: 0.7;
+}
+
+.message-loading::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.5);
+    z-index: 10;
+}
+
+/* Selected chat style */
+.selected-chat {
+    background-color: #f3f4f6 !important;
+    border-left: 3px solid #8b5cf6;
+    transition: all 0.3s ease;
+}
+
+/* Message animations */
+@keyframes messageEnter {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message-enter {
+    animation: messageEnter 0.3s ease-out;
+}

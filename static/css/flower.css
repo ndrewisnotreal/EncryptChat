@@ -1,0 +1,64 @@
+.flower-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(to bottom, #f5f7fa 0%, #c3cfe2 100%);
+    overflow: hidden;
+}
+
+.flower {
+    position: absolute;
+    animation: bloom 8s ease-in-out infinite both;
+    opacity: 0.7;
+}
+
+@keyframes bloom {
+    0% { transform: scale(0.1) rotate(0deg); opacity: 0; }
+    50% { transform: scale(1) rotate(180deg); opacity: 0.7; }
+    100% { transform: scale(0.1) rotate(360deg); opacity: 0; }
+}
+
+.flower:nth-child(1) {
+    top: 20%;
+    left: 10%;
+    color: #ff9a9e;
+    animation-delay: 0s;
+}
+
+.flower:nth-child(2) {
+    top: 60%;
+    left: 80%;
+    color: #fad0c4;
+    animation-delay: 2s;
+}
+
+.flower:nth-child(3) {
+    top: 30%;
+    left: 70%;
+    color: #a18cd1;
+    animation-delay: 4s;
+}
+
+.flower:nth-child(4) {
+    top: 70%;
+    left: 20%;
+    color: #fbc2eb;
+    animation-delay: 6s;
+}
+
+.flower:nth-child(5) {
+    top: 10%;
+    left: 50%;
+    color: #ffecd2;
+    animation-delay: 1s;
+}
+
+.flower:nth-child(6) {
+    top: 80%;
+    left: 60%;
+    color: #fcb69f;
+    animation-delay: 3s;
+}

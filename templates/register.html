@@ -1,0 +1,78 @@
+<!-- templates/register.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link
+      rel="stylesheet"
+      href="{{url_for('static',filename='dist/output.css')}}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/flower.css') }}"
+    />
+  </head>
+  <body class="flex items-center justify-center min-h-screen font-sans p-4">
+    <!-- Flower Animation Background -->
+    <div class="flower-bg">
+      <div class="flower text-4xl">🌸</div>
+      <div class="flower text-5xl">🌺</div>
+      <div class="flower text-6xl">🌼</div>
+      <div class="flower text-4xl">🌹</div>
+      <div class="flower text-5xl">💮</div>
+      <div class="flower text-6xl">🏵️</div>
+    </div>
+
+    <!-- Glass container - Responsive for all devices -->
+    <div
+      class="backdrop-blur-md bg-white/70 p-6 sm:p-8 rounded-xl w-full max-w-sm mx-auto border-2 border-white/30 shadow-lg hover:shadow-xl transition-all duration-300 text-center"
+    >
+      <h2 class="text-2xl sm:text-3xl font-bold text-purple-800 mb-6">
+        Register
+      </h2>
+
+      <form
+        method="POST"
+        class="space-y-4 text-left mx-auto"
+        style="max-width: 300px"
+      >
+        <div>
+          <input
+            name="username"
+            placeholder="Username"
+            required
+            class="w-full px-4 py-3 text-sm sm:text-base rounded-lg border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            required
+            class="w-full px-4 py-3 text-sm sm:text-base rounded-lg border border-purple-200 focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-transparent"
+          />
+        </div>
+
+        <div class="text-center">
+          <button
+            type="submit"
+            class="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+          >
+            Register
+          </button>
+        </div>
+
+        <p class="text-xs sm:text-sm mt-4 text-purple-700">
+          Sudah punya akun?
+          <a href="/login" class="font-semibold underline hover:text-purple-800"
+            >Login</a
+          >
+        </p>
+      </form>
+    </div>
+  </body>
+</html>

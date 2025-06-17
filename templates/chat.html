@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat</title>
+    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flower.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes messageEnter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message-enter {
+            animation: messageEnter 0.3s ease-out;
+        }
+        .user-loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .user-loading::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            margin: -8px 0 0 -8px;
+            border: 2px solid #ddd;
+            border-top-color: #666;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .typing-indicator span.typing-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #6b7280;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span.typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+        .typing-indicator span.typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span.typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen font-sans">
+    <div class="flower-bg">
+        <div class="flower text-4xl">🌸</div>
+        <div class="flower text-5xl">🌺</div>
+        <div class="flower text-6xl">🌼</div>
+        <div class="flower text-4xl">🌹</div>
+        <div class="flower text-5xl">💮</div>
+        <div class="flower text-6xl">🏵️</div>
+    </div>
+    <div class="flex h-full max-w-6xl mx-auto shadow-xl">
+        <!-- Sidebar - Contacts List -->
+        <div class="w-1/3 bg-white border-r flex flex-col">
+            <!-- Header -->
+            <div class="p-4 bg-gray-50 border-b flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full {{ current_user_color }} flex items-center justify-center text-white font-bold">
+                        {{ current_user[0]|upper }}
+                    </div>
+                    <span class="ml-3 font-semibold">{{ current_user }}</span>
+                </div>
+                <a href="/logout" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+            
+            <!-- Search -->
+            <div class="p-3 bg-white border-b">
+                <div class="relative">
+                    <input type="text" placeholder="Search contacts" class="w-full pl-10 pr-4 py-2 rounded-full bg-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-200 text-sm">
+                    <div class="absolute left-3 top-2.5 text-gray-400">
+                        <i class="fas fa-search"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Contacts List -->
+            <div id="userList" class="flex-1 overflow-y-auto">
+                {% for user in users %}
+                <button id="user-{{ user.username }}" onclick="selectUser('{{ user.username }}', '{{ user.avatar_color }}')" 
+                        class="w-full text-left p-3 hover:bg-gray-50 flex items-center border-b border-gray-100 transition-colors duration-150">
+                    <div class="relative">
+                        <div class="w-10 h-10 rounded-full {{ user.avatar_color }} flex items-center justify-center text-white font-bold">
+                            {{ user.username[0]|upper }}
+                        </div>
+                        <span id="status-{{ user.username }}" class="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white {{ 'bg-green-400' if user.online else 'bg-gray-400' }}"></span>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">{{ user.username }}</span>
+                            <span class="text-xs text-gray-500">
+                                {% if user.last_message_time %}
+                                    {{ user.last_message_time|datetimeformat }}
+                                {% endif %}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-500 truncate">
+                            {% if user.last_message %}
+                                {{ user.last_message }}
+                            {% else %}
+                                No messages yet
+                            {% endif %}
+                        </p>
+                    </div>
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div id="chatHeader" class="p-3 bg-white border-b flex items-center justify-between hidden">
+                <div class="flex items-center">
+                    <div id="chatAvatar" class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold">
+                        ?
+                    </div>
+                    <div class="ml-3">
+                        <div class="font-semibold" id="chatWith">Select a contact</div>
+                        <div class="text-xs text-gray-500 flex items-center">
+                            <span id="chatStatus" class="w-2 h-2 rounded-full bg-gray-400 mr-1"></span>
+                            <span id="statusText">Offline</span>
+                            <span id="typingIndicator" class="ml-2 typing-indicator hidden">
+                                <span class="typing-dot"></span>
+                                <span class="typing-dot"></span>
+                                <span class="typing-dot"></span>
+                                <span class="ml-1 text-xs">typing...</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex space-x-4 text-gray-500">
+                    <button class="hover:text-gray-700">
+                        <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="hover:text-gray-700">
+                        <i class="fas fa-video"></i>
+                    </button>
+                    <button class="hover:text-gray-700">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="chatBox" class="flex-1 p-4 overflow-y-auto chat-bg">
+                <!-- Default state when no chat selected -->
+                <div id="emptyChat" class="h-full flex flex-col items-center justify-center text-center p-6">
+                    <div class="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center mb-4">
+                        <i class="fas fa-comments text-gray-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">Select a chat to start messaging</h3>
+                    <p class="text-gray-500 max-w-md">Choose a contact from the list to begin your conversation. Your messages will appear here.</p>
+                </div>
+            </div>
+
+            <!-- Message Input (hidden by default) -->
+            <div id="messageInputContainer" class="p-3 bg-white border-t hidden">
+                <form onsubmit="sendMessage(event)" class="flex items-center gap-2">
+                    <button type="button" class="p-2 rounded-full text-gray-500 hover:bg-gray-100">
+                        <i class="far fa-smile"></i>
+                    </button>
+                    <button type="button" class="p-2 rounded-full text-gray-500 hover:bg-gray-100">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input id="messageInput" class="flex-1 border rounded-full px-4 py-2 bg-gray-100 focus:outline-none focus:bg-white focus:ring-2 focus:ring-purple-200" 
+                           placeholder="Type a message" autocomplete="off" />
+                    <button type="submit" class="p-2 rounded-full text-purple-600 hover:bg-purple-100">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const socket = io();
+    const currentUser = "{{ current_user }}";
+    let selectedUser = null;
+    let typingTimeout;
+    let isLoadingMessages = false;
+    let lastClickTime = 0;
+
+    // Connect to Socket.IO
+    socket.on('connect', () => {
+        console.log('Connected to server with socket ID:', socket.id);
+        socket.emit('join', { username: currentUser });
+        socket.emit('get_online_users');
+    });
+
+    // Handle connection errors
+    socket.on('connect_error', (error) => {
+        console.error('Connection Error:', error);
+        showToast('Connection error. Trying to reconnect...', 'error');
+        resetLoadingStates();
+    });
+
+    // Handle reconnection
+    socket.on('reconnect', (attempt) => {
+        console.log('Reconnected after', attempt, 'attempts');
+        showToast('Reconnected successfully', 'success');
+        socket.emit('join', { username: currentUser });
+        socket.emit('get_online_users');
+    });
+
+    
+
+    function selectUser(username, avatarColor) {
+        const now = Date.now();
+        if (now - lastClickTime < 300) return; // 300ms debounce
+        lastClickTime = now;
+
+        console.log(`Selecting user: ${username}`, 
+                   `Current selected: ${selectedUser}`,
+                   `Loading state: ${isLoadingMessages}`);
+
+        // Reset loading state if switching users
+        if (username !== selectedUser) {
+            resetLoadingStates();
+        }
+
+        // Skip if already selected or loading
+        if (isLoadingMessages || username === selectedUser) return;
+        
+        // Add loading state
+        const clickedButton = document.getElementById(`user-${username}`);
+        clickedButton.classList.add('user-loading');
+        isLoadingMessages = true;
+        
+        // Update selected user
+        selectedUser = username;
+        
+        // Add loading state to chat area
+        const chatBox = document.getElementById('chatBox');
+        chatBox.classList.add('message-loading');
+        
+        // Update UI
+        document.getElementById('emptyChat').classList.add('hidden');
+        document.getElementById('chatHeader').classList.remove('hidden');
+        document.getElementById('messageInputContainer').classList.remove('hidden');
+        
+        // Update chat header
+        document.getElementById('chatWith').textContent = username;
+        const chatAvatar = document.getElementById('chatAvatar');
+        chatAvatar.textContent = username[0].toUpperCase();
+        chatAvatar.className = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${avatarColor}`;
+        
+        // Update status
+        const statusElement = document.getElementById(`status-${username}`);
+        updateStatusIndicator(statusElement.classList.contains('bg-green-400'));
+        
+        // Clear current messages
+        chatBox.innerHTML = '';
+        
+        // Update active contact in sidebar
+        document.querySelectorAll('#userList button').forEach(btn => {
+            btn.classList.remove('bg-gray-100', 'selected-chat');
+            if(btn.id === `user-${username}`) {
+                btn.classList.add('bg-gray-100', 'selected-chat');
+            }
+        });
+        
+        // Load messages
+        socket.emit('load_messages', { contact: username }, (response) => {
+            resetLoadingStates();
+            clickedButton.classList.remove('user-loading');
+            
+            if (response && response.error) {
+                showToast('Failed to load messages', 'error');
+                console.error('Load messages error:', response.error);
+            }
+        });
+        
+        // Focus input field
+        setTimeout(() => {
+            document.getElementById('messageInput').focus();
+        }, 100);
+    }
+    
+    function resetLoadingStates() {
+        isLoadingMessages = false;
+        document.querySelectorAll('.user-loading').forEach(el => el.classList.remove('user-loading'));
+        document.getElementById('chatBox').classList.remove('message-loading');
+    }
+
+    // Improved message handling
+    socket.on('receive_message', (data) => {
+        console.log('Received message:', data);
+        
+        // Always update last message in sidebar
+        updateLastMessage(data.sender, data.message, data.timestamp);
+        
+        // Only append if it's for the current chat
+        if (data.sender === selectedUser || data.sender === currentUser) {
+            appendMessage(data.sender, data.message, data.sender === currentUser, data.timestamp);
+        }
+    });
+
+    // Update the status indicator in chat header
+    function updateStatusIndicator(isOnline) {
+        const chatStatus = document.getElementById('chatStatus');
+        const statusText = document.getElementById('statusText');
+        
+        if (isOnline) {
+            chatStatus.classList.remove('bg-gray-400');
+            chatStatus.classList.add('bg-green-400');
+            statusText.textContent = 'Online';
+        } else {
+            chatStatus.classList.remove('bg-green-400');
+            chatStatus.classList.add('bg-gray-400');
+            statusText.textContent = 'Offline';
+        }
+    }
+
+    // Send a new message
+    function sendMessage(event) {
+        event.preventDefault();
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim();
+        
+        if (!message || !selectedUser) return;
+        
+        socket.emit('send_message', {
+            receiver: selectedUser,
+            message: message
+        }, (response) => {
+            if (response && response.success) {
+                // Message sent successfully
+                console.log('Message delivered');
+            } else {
+                // Handle error
+                console.error('Failed to send message:', response.error);
+                showToast('Failed to send message', 'error');
+            }
+        });
+        
+        // Clear input
+        messageInput.value = '';
+    }
+
+    // Handle typing indicator
+    function setupTypingIndicator() {
+        const messageInput = document.getElementById('messageInput');
+        
+        messageInput.addEventListener('input', () => {
+            if (messageInput.value.trim() && selectedUser) {
+                socket.emit('typing', {
+                    to: selectedUser,
+                    from: currentUser
+                });
+                
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    socket.emit('stop_typing', {
+                        to: selectedUser,
+                        from: currentUser
+                    });
+                }, 2000);
+            }
+        });
+    }
+
+    // Load chat history
+    socket.on('chat_history', (messages) => {
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML = '';
+        
+        if (messages.length === 0) {
+            chatBox.innerHTML = '<div class="text-center text-gray-500 py-4">No messages yet</div>';
+        } else {
+            messages.forEach(msg => {
+                appendMessage(msg.sender, msg.message, msg.isCurrentUser, msg.timestamp);
+            });
+        }
+        
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    socket.on('load_messages_error', (error) => {
+        console.error('Failed to load messages:', error);
+        resetLoadingStates();
+        showToast('Failed to load messages', 'error');
+    });
+
+    // Update user statuses
+    socket.on('online_users_list', (onlineUsers) => {
+        console.log('Online users:', onlineUsers);
+        
+        // Update all users' status
+        document.querySelectorAll('[id^="status-"]').forEach(element => {
+            const username = element.id.replace('status-', '');
+            if (onlineUsers.includes(username)) {
+                element.classList.remove('bg-gray-400');
+                element.classList.add('bg-green-400');
+                
+                // Update header if this is the selected user
+                if (selectedUser === username) {
+                    updateStatusIndicator(true);
+                }
+            } else {
+                element.classList.remove('bg-green-400');
+                element.classList.add('bg-gray-400');
+                
+                // Update header if this is the selected user
+                if (selectedUser === username) {
+                    updateStatusIndicator(false);
+                }
+            }
+        });
+    });
+
+    // Handle user connection/disconnection
+    socket.on('user_connected', (data) => {
+        const statusElement = document.getElementById(`status-${data.username}`);
+        if (statusElement) {
+            statusElement.classList.remove('bg-gray-400');
+            statusElement.classList.add('bg-green-400');
+            
+            if (selectedUser === data.username) {
+                updateStatusIndicator(true);
+            }
+        }
+        showToast(`${data.username} is now online`, 'info');
+    });
+
+    socket.on('user_disconnected', (data) => {
+        const statusElement = document.getElementById(`status-${data.username}`);
+        if (statusElement) {
+            statusElement.classList.remove('bg-green-400');
+            statusElement.classList.add('bg-gray-400');
+            
+            if (selectedUser === data.username) {
+                updateStatusIndicator(false);
+            }
+        }
+        showToast(`${data.username} is now offline`, 'info');
+    });
+
+    // Handle typing indicators
+    socket.on('typing', (data) => {
+        if (data.from === selectedUser) {
+            document.getElementById('typingIndicator').classList.remove('hidden');
+        }
+    });
+
+    socket.on('stop_typing', (data) => {
+        if (data.from === selectedUser) {
+            document.getElementById('typingIndicator').classList.add('hidden');
+        }
+    });
+
+    // Append a message to the chat
+    function appendMessage(sender, message, isCurrentUser, timestamp) {
+        const chatBox = document.getElementById('chatBox');
+        
+        // Remove empty state if it exists
+        const emptyChat = document.getElementById('emptyChat');
+        if (emptyChat && !emptyChat.classList.contains('hidden')) {
+            emptyChat.classList.add('hidden');
+        }
+        
+        // Format timestamp
+        const timeString = timestamp ? new Date(timestamp).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        }) : new Date().toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+        
+        // Create message element with better animation
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `flex mb-4 ${isCurrentUser ? 'justify-end' : 'justify-start'} message-enter`;
+        
+        // Create message bubble
+        const bubble = document.createElement('div');
+        bubble.className = `relative max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+            isCurrentUser ? 'bg-green-100 text-gray-800 rounded-br-none message-out' 
+            : 'bg-white text-gray-800 rounded-bl-none message-in shadow'
+        }`;
+        
+        bubble.innerHTML = `
+            <div class="break-words">${message}</div>
+            <div class="text-right mt-1">
+                <span class="text-xs ${isCurrentUser ? 'text-gray-500' : 'text-gray-400'}">${timeString}</span>
+                ${isCurrentUser ? '<i class="fas fa-check ml-1 text-blue-500 text-xs"></i>' : ''}
+            </div>
+        `;
+        
+        messageDiv.appendChild(bubble);
+        chatBox.appendChild(messageDiv);
+        
+        // Smooth scroll to bottom
+        setTimeout(() => {
+            chatBox.scrollTo({
+                top: chatBox.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 50);
+    }
+
+    // Update last message in sidebar
+    function updateLastMessage(sender, message, timestamp) {
+        const targetUser = sender === currentUser ? selectedUser : sender;
+        if (!targetUser) return;
+        
+        const userElement = document.getElementById(`user-${targetUser}`);
+        if (userElement) {
+            const preview = userElement.querySelector('p');
+            const timeElement = userElement.querySelector('span.text-xs');
+            
+            if (preview) {
+                preview.textContent = message.length > 30 ? message.substring(0, 30) + '...' : message;
+            }
+            
+            if (timeElement && timestamp) {
+                timeElement.textContent = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        }
+    }
+
+    // Show toast notification
+    function showToast(message, type = 'info') {
+        const colors = {
+            info: 'bg-blue-500',
+            success: 'bg-green-500',
+            error: 'bg-red-500',
+            warning: 'bg-yellow-500'
+        };
+        
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 text-white px-4 py-2 rounded-md shadow-lg ${colors[type] || colors.info} animate-fade-in`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('animate-fade-out');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Initialize everything
+    document.addEventListener('DOMContentLoaded', () => {
+        setupTypingIndicator();
+    });
+</script>
+</body>
+</html>
