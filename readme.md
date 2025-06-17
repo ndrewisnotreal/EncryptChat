@@ -18,8 +18,8 @@ LANGKAH-LANGKAH INSTALASI
 1. Clone Repository
    Buka terminal atau command prompt dan jalankan:
    
-       git clone https://github.com/ndrewisnotreal/EncryptChat.git
-       cd EncryptChat
+       git clone https://github.com/ndrewisnotreal/FlowerChat.git
+       cd FlowerChat
 
 2. Install Dependencies
    Jalankan perintah berikut untuk menginstal dependensi:
