@@ -1,29 +1,53 @@
-# Cara Install Aplikasi
+EncryptChat - Aplikasi Chat dengan Enkripsi RSA
+================================================
 
-Berikut adalah panduan untuk menginstall aplikasi ini di lingkungan lokal Anda.
+Panduan instalasi dan penggunaan aplikasi ini di lingkungan lokal Anda.
 
-## Prasyarat
+------------------------------------------------------------
+PERSYARATAN
+------------------------------------------------------------
+Pastikan Anda sudah menginstall:
 - Python 3.6 atau yang lebih baru
 - pip (package installer untuk Python)
-- Git (untuk clone repository)
+- Git (untuk meng-clone repository)
 
-## Langkah-langkah Instalasi
+------------------------------------------------------------
+LANGKAH-LANGKAH INSTALASI
+------------------------------------------------------------
 
-1. **Clone repository**
-   ```bash
-   git clone https://github.com/ndrewisnotreal/EncryptChat.git
-   cd EncryptChat
+1. Clone Repository
+   Buka terminal atau command prompt dan jalankan:
+   
+       git clone https://github.com/ndrewisnotreal/EncryptChat.git
+       cd EncryptChat
 
-2. **Install dependencies**
-    ```bash
-    pip install flask
-    pip install flask-socketio
-    pip install package-lain-yang-dibutuhkan
+2. Install Dependencies
+   Jalankan perintah berikut untuk menginstal dependensi:
 
-3. **Jalankan aplikasi**
-    ```bash
-    python app.py
+       pip install flask
+       pip install flask-socketio
+       pip install pycryptodome
 
-4. **Buka di browser**
+3. Jalankan Aplikasi
+   Jalankan file utama dengan perintah:
 
-    127.0.0.0:5000
+       python app.py
+
+4. Akses di Browser
+   Buka browser dan akses aplikasi di alamat:
+
+       http://127.0.0.1:5000
+
+------------------------------------------------------------
+CATATAN TAMBAHAN
+------------------------------------------------------------
+- Disarankan menggunakan virtual environment (opsional).
+- Jika tersedia file requirements.txt, Anda bisa gunakan:
+
+       pip install -r requirements.txt
+
+------------------------------------------------------------
+LISENSI
+------------------------------------------------------------
+Aplikasi ini dilisensikan di bawah MIT License.
+© 2025 ndrewisnotreal
